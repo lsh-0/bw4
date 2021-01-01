@@ -18,7 +18,7 @@
                               ;; ensure we're not writing logs to files
                               :appenders {:spit nil}}
     (if ns-kw
-      (if (some #{ns-kw} [:main :core])
+      (if (some #{ns-kw} [:main :core :store])
         (with-gui-diff
           (if fn-kw
             ;; `test-vars` will run the test but not give feedback if test passes OR test not found
@@ -42,9 +42,22 @@
   [ns-kw-list]
   (mapcat find-service-list ns-kw-list))
 
+(defn find-service-init
+  [ns-kw]
+  (let [ns (->> ns-kw name (str "bw.") symbol)]
+    (try
+      (var-get (ns-resolve ns 'init))
+      (catch Exception e
+        (debug (format "init not found: '%s/init" ns))))))
+
+(defn find-all-service-init
+  [ns-kw-list]
+  (mapv find-service-init ns-kw-list))
+
 ;;
 
-(def known-services [:core]) ;;:basic-services :some-service :poll-service :store])
+(def known-services [:core :store])
+(def known-service-init [:store])
 
 (defn stop
   [state]
@@ -60,7 +73,14 @@
     (warn "application already started")
     (do
       (alter-var-root #'core/state (constantly (atom core/-state-template)))
-      (core/init (merge {:service-list (find-all-services known-services)} opt-map)))))
+      (core/init (merge {:service-list (find-all-services known-services)} opt-map))
+
+      ;; init any services that need it
+      (doseq [init-fn (find-all-service-init known-service-init)]
+        (debug "initialising" init-fn)
+        (init-fn))
+
+      true)))
 
 (defn restart
   []

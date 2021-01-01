@@ -8,11 +8,15 @@
                  [org.clojure/spec.alpha "0.2.176"]
                  [orchestra "2018.12.06-2"] ;; improved clojure.spec instrumentation
                  [org.clojure/tools.namespace "0.3.1"]
-                 [com.taoensso/timbre "4.10.0"]
+                 [com.taoensso/timbre "5.1.0"]
                  [clj-commons/fs "1.5.0"]
 
-                 [juxt/crux-core "20.03-1.8.0-alpha"]
-                 [juxt/crux-rocksdb "20.03-1.8.0-alpha"]
+                 [juxt/crux-core "20.12-1.13.0-beta"
+                  ;; slf4j logging bs: https://github.com/juxt/crux/issues/491
+                  :exclusions [org.slf4j/slf4j-api ;; to logback, I did the same for both
+                               org.eclipse.rdf4j/rdf4j-rio-ntriples
+                               org.eclipse.rdf4j/rdf4j-queryparser-sparql]]
+                 [juxt/crux-rocksdb "20.12-1.13.0-beta"]
 
                  ;; gui-diff depends on an older, buggier version of `ordered`. this prevents that.
                  [org.flatland/ordered "1.5.9"] 

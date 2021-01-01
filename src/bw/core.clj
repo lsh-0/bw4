@@ -16,8 +16,9 @@
    :publisher nil ;; async/chan, `publication` reads from this channel and we write to it
    :service-list [] ;; list of known services. each service is a map, each map has a function
    ;; a service can store things in state, just not at the top level
-   :service-state {:db {:storage-dir "crux-store" ;; set to nil for in-memory store only (faster testing)
-                        }}
+   :service-state {:store {:storage-dir nil ;; in-memory store only (faster everything)
+                           ;;:storage-dir "crux-store" ;; permanent store
+                           }}
    :known-topics #{} ;; set of all known available topics
 })
 
@@ -35,9 +36,17 @@
       @state)
     (error "application has not been started, cannot access path:" path)))
 
+(defn set-state
+  [& path]
+  (if (started?)
+    (swap! state assoc-in (butlast path) (last path))
+    (error "application has not been started, cannot update path:" (butlast path)))
+  nil)
+
 (defn add-cleanup
   [f]
-  (swap! state update-in [:cleanup] conj f))
+  (swap! state update-in [:cleanup] conj f)
+  nil)
 
 (defn state-bind
   "executes given callback function when value at path in state map changes. 
@@ -60,11 +69,15 @@
     (add-cleanup rmwatch)
     nil))
 
+(defn mk-id
+  []
+  (java.util.UUID/randomUUID))
+
 (defn-spec message map?
   "creates a simple message that will go to those listening to the 'off-topic' topic by default"
   [topic-kw keyword?, msg map?]
   {:type :message
-   ;;:id (mk-id) ;; good idea, not yet
+   :id (mk-id)
    :topic topic-kw
    :message msg
    :response-chan nil ;; a channel is supplied if the message sender wants to receive a response
