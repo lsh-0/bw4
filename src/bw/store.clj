@@ -63,6 +63,22 @@
   [id time]
   (from-crux-doc (crux/entity (crux/db (node) time) id)))
 
+(defn get-history-by-id
+  "returns a pair of lists [document-list, transaction-details]."
+  ;; note: not sure if this split is a good idea, we'll see
+  [id]
+  (let [results (crux/entity-history (crux/db (node)) id :desc {:with-docs? true})
+        doc-list (mapv (comp from-crux-doc :crux.db/doc) results)
+        tx (mapv #(dissoc % :crux.db/doc) results)]
+    [doc-list tx]))
+
+(defn delete-by-id
+  "completely deletes document with given `id` including it's version history."
+  [id]
+  (let [result (crux/submit-tx (node) [[:crux.tx/evict id]])]
+    (future
+      (crux/await-tx (node) result))))
+
 (defn query-by-type
   [type-kw]
   (crux/q (crux/db (node))
