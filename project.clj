@@ -24,6 +24,9 @@
 
                  ;; remember to update the LICENCE.txt
                  ;; remember to update pom file (`lein pom`)
+
+                 [clj-http "3.11.0"]
+                 [com.taoensso/nippy "3.1.1"]
                  
                  ]
   :repl-options {:init-ns bw.main})
