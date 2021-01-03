@@ -67,7 +67,7 @@
        (not (file-older-than cache-key expiry-offset-hours))))
 
 (defn download
-  [url & client]
+  [url & [opts]]
   (let [cm (conn/make-reusable-conn-manager {})
 
         ;; options:
@@ -83,13 +83,13 @@
 
                                       }})
 
-        opts {:trace-redirects true
-              :as :clojure
-              :connection-manager cm
-              :cache true
-              :cache-config cache-config}
+        config {:trace-redirects true
+                :connection-manager cm
+                :cache true
+                :cache-config cache-config}
 
-        opts (if client (assoc opts :http-client client) opts)
+        ;; clj-http options that can be passed through to the request, if they exist
+        config (merge config (select-keys opts [:as :http-client :query-params]))
 
         cache-file (cache-key url)
         
@@ -97,7 +97,7 @@
 
     (if (cache-hit? cache-file)
       (slurp-cache-file cache-file)
-      (spit-cache-file (http/get url opts) cache-file))))
+      (spit-cache-file (http/get url config) cache-file))))
 
 (defn download-file
   [url]

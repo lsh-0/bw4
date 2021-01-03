@@ -27,6 +27,7 @@
 
                  [clj-http "3.11.0"]
                  [com.taoensso/nippy "3.1.1"]
+                 [cheshire "5.10.0"] ;; json decoding
                  
                  ]
   :repl-options {:init-ns bw.main})
