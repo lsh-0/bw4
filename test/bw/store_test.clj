@@ -40,6 +40,38 @@
         @(store/put doc-update) ;; same :id
         (is (= doc-update (store/get-by-id :baz)))))))
 
+(deftest patch-doc
+  (testing "a document (map) can be 'patched'"
+    (helper/with-running-app
+      (let [doc {:foo :bar, :id :baz}
+            patch {:asdf :fdsa}
+            expected (merge doc patch)]
+        @(store/put doc)
+        @(store/patch :baz patch)
+        (is (= expected (store/get-by-id :baz)))))))
+
+(deftest patch-doc--missing-doc
+  (testing "attempting to patch a document that doesn't exist rolls the transaction back"
+    (helper/with-running-app
+      (let [;; doc {:foo :bar, :id :baz}
+            patch {:asdf :fdsa}]
+        ;;@(store/put doc)
+        @(store/patch :baz patch)
+        ;; nothing created
+        (is (nil? (store/get-by-id :baz)))))))
+
+(deftest patch-doc--bad-data
+  (testing "attempting to patch a document with non-map data rolls the transaction back"
+    (helper/with-running-app
+      (let [doc {:foo :bar, :id :baz}
+            patch "hello?"]
+        @(store/put doc)
+        @(store/patch :baz patch)
+        (is (= doc (store/get-by-id :baz)))))))
+
+
+;; object history
+
 (deftest doc-history
   (testing "all previous versions of a document (map) can be retrieved"
     (helper/with-running-app
@@ -49,6 +81,16 @@
             _ @(store/put doc-update) ;; same :id
             [doc-history tx] (store/get-history-by-id :baz)]
         (is (= [doc-update doc] doc-history))))))
+
+(deftest identical-history
+  (testing "identical updates to documents do not create new versions"
+    (helper/with-running-app
+      (let [doc {:foo :bar, :id :baz}
+            doc-update doc
+            _ @(store/put doc)
+            _ @(store/update-doc doc-update)
+            [doc-history tx] (store/get-history-by-id :baz)]
+        (is (= [doc-update] doc-history))))))
 
 (deftest delete-by-id
   (testing "a document (map) can be deleted from the store"

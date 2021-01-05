@@ -55,6 +55,20 @@
       ;; this is *another* transaction on top of the one in `-put`, so the `tx-id` and `tx-time` are different  
       [doc (crux/await-tx (node) result)])))
 
+(defn patch
+  "merges `patch-data` over the current entity document"
+  [eid patch-data]
+  (let [result (crux/submit-tx (node) [[:crux.tx/fn :patch eid patch-data]])]
+    (future
+      (crux/await-tx (node) result))))
+
+(defn update-doc
+  [doc]
+  (let [crux-doc (to-crux-doc doc)
+        result (crux/submit-tx (node) [[:crux.tx/fn :update crux-doc]])]
+    (future
+      [doc (crux/await-tx (node) result)])))
+
 (defn get-by-id
   [id]
   (from-crux-doc (crux/entity (crux/db (node)) id)))
@@ -62,6 +76,12 @@
 (defn get-by-id+time
   [id time]
   (from-crux-doc (crux/entity (crux/db (node) time) id)))
+
+(defn exists?
+  "returns `true` if given `doc` *exactly* matches one in the database"
+  [doc]
+  (let [crux-doc (to-crux-doc doc)]
+    (some? (spy :info (crux/submit-tx (node) [[:crux.tx/match (:crux.db/id crux-doc) crux-doc]])))))
 
 (defn get-history-by-id
   "returns a pair of lists [document-list, transaction-details]."
@@ -87,9 +107,37 @@
 
 ;;
 
+(defn- add-patch-tx
+  "creates a 'patch' function that takes an `eid` and `patch-data` and then merges the patch-data over the current document.
+  see `patch`."
+  []
+  (crux/submit-tx
+   (node)
+   [[:crux.tx/put {:crux.db/id :patch
+                   :crux.db/fn '(fn [ctx eid patch-data]
+                                  (let [db (crux.api/db ctx)
+                                        entity (crux.api/entity db eid)] ;; => {:foo :baz, :crux.db/id :baz}
+                                    (when (and (not (nil? entity))
+                                             (map? patch-data))
+                                      [[:crux.tx/put (merge entity patch-data)]])))}]]))
+
+(defn- add-update-tx
+  "creates a 'update' function that takes a `document` and performs a `put` *but only if the data is different*.
+  identical data causes the transaction to be rolled back preventing sequential identical documents."
+  []
+  (crux/submit-tx
+   (node)
+   [[:crux.tx/put {:crux.db/id :update
+                   :crux.db/fn '(fn [ctx doc]
+                                  (let [db (crux.api/db ctx)
+                                        eid (:crux.db/id doc)
+                                        entity (crux.api/entity db eid)]
+                                    (when-not (= doc entity)
+                                      [[:crux.tx/put doc]])))}]]))
 (defn start-node
   [storage-dir]
-  (info "got storage dir" storage-dir)
+  (when storage-dir
+    (debug "got storage dir" storage-dir))
   (if storage-dir
     (crux/start-node {:my-rocksdb {:crux/module 'crux.rocksdb/->kv-store
                                    :db-dir (-> storage-dir (io/file "db") fs/absolute str)}
@@ -107,6 +155,8 @@
   []
   (let [node (start-node (core/get-state :service-state :store :storage-dir))]
     (core/set-state :service-state :store :node node)
+    (add-patch-tx)
+    (add-update-tx)
     (core/add-cleanup #(try
                          (when (core/get-state :service-state :store :storage-dir)
                            ;; if we don't sync before we close then nothing is returned when brought back up.
