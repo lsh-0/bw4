@@ -31,7 +31,7 @@
         (is (= doc (dissoc retrieved-doc :id)))))))
 
 (deftest update-doc
-  (testing "a document (map) can be updated"
+  (testing "a document (map) can be updated with a new version using `put`"
     (helper/with-running-app
       (let [doc {:foo :bar, :id :baz}
             doc-update (assoc doc :foo :bup)]
@@ -39,6 +39,23 @@
         (is (= doc (store/get-by-id :baz)))
         @(store/put doc-update) ;; same :id
         (is (= doc-update (store/get-by-id :baz)))))))
+
+(deftest update-doc--update
+  (testing "a document (map) can be updated with a new version using `update`"
+    (helper/with-running-app
+      (let [doc {:foo :bar, :id :baz}
+            doc-update (assoc doc :foo :bup)]
+        @(store/put doc)
+        (is (= doc (store/get-by-id :baz)))
+        @(store/update-doc doc-update) ;; same :id
+        (is (= doc-update (store/get-by-id :baz)))))))
+
+(deftest update-doc--add
+  (testing "a document (map) can also be *added* by using `update`"
+    (helper/with-running-app
+      (let [doc {:foo :bar, :id :baz}]
+        @(store/update-doc doc)
+        (is (= doc (store/get-by-id :baz)))))))
 
 (deftest patch-doc
   (testing "a document (map) can be 'patched'"
