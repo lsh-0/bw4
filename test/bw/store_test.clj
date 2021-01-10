@@ -1,10 +1,13 @@
 (ns bw.store-test
   (:require
-   [clojure.test :refer [deftest testing is]]
+   [clojure.test :refer [deftest testing is use-fixtures]]
+   [me.raynes.fs :as fs]
    [bw
     [store :as store]
     [core :as core]
     [test-helper :as helper]]))
+
+(use-fixtures :each helper/fixture-tempcwd)
 
 (deftest put
   (testing "a document (map) can be stored, adding an `id` automatically"
@@ -117,3 +120,22 @@
         (is (= doc (store/get-by-id (:id doc))))
         @(store/delete-by-id (:id doc))
         (is (= nil (store/get-by-id (:id doc))))))))
+
+;; permanent storage
+
+(deftest store-on-disk
+  (testing "document store can be persisted on disk"
+    (let [doc {:foo :bar, :id :baz}
+          opts {:initial-state {:service-state {:store {:storage-dir fs/*cwd*}}}}]
+
+      ;; start app with a disk store and store a document
+      (helper/with-running-app+opts opts
+        @(store/put doc))
+
+      ;; start app without the disk store and try to fetch the document
+      (helper/with-running-app
+        (is (= nil (store/get-by-id :baz))))
+
+      ;; start app again with the same disk store and document exists
+      (helper/with-running-app+opts opts
+        (is (= doc (store/get-by-id :baz)))))))

@@ -1,9 +1,11 @@
 (ns bw.core-test
   (:require
-   [clojure.test :refer [deftest testing is]]
+   [clojure.test :refer [deftest testing is use-fixtures]]
    [bw
     [core :as core]
     [test-helper :as helper]]))
+
+(use-fixtures :each helper/fixture-tempcwd)
 
 (deftest init
   (testing "app can run with no services"
@@ -19,7 +21,7 @@
                                   (fn [msg]
                                     (reset! test-var (-> msg :message :foo))))
           message (core/message topic {:foo :bar})]
-      (helper/with-opts-running-app {:service-list [service]}
+      (helper/with-running-app+opts {:service-list [service]}
         (core/emit message)
         (Thread/sleep 10) ;; doop de doo. this is the uncoordinated, asynchronous bit.
         (is (= :bar @test-var))))))
@@ -32,12 +34,12 @@
                                   (fn [msg]
                                     (-> msg :message :foo)))
           message (core/request topic {:foo :bar})]
-      (helper/with-opts-running-app {:service-list [service]}
+      (helper/with-running-app+opts {:service-list [service]}
         (is (= :bar @(core/emit message))))))
 
   (testing "nil results can be sent"
     (let [topic :test-messages
           service (core/mkservice :test-service topic (fn [msg] nil))
           message (core/request topic {:foo :bar})]
-      (helper/with-opts-running-app {:service-list [service]}
+      (helper/with-running-app+opts {:service-list [service]}
         (is (= nil @(core/emit message)))))))

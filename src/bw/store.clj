@@ -139,10 +139,10 @@
   (when storage-dir
     (debug "got storage dir" storage-dir))
   (if storage-dir
-    (crux/start-node {:my-rocksdb {:crux/module 'crux.rocksdb/->kv-store
-                                   :db-dir (-> storage-dir (io/file "db") fs/absolute str)}
-                      :crux/tx-log {:kv-store :my-rocksdb}
-                      :crux/document-store {:kv-store :my-rocksdb}
+    (crux/start-node {:bw4-rocksdb {:crux/module 'crux.rocksdb/->kv-store
+                                    :db-dir storage-dir}
+                      :crux/document-store {:kv-store :bw4-rocksdb}
+                      :crux/tx-log {:kv-store :bw4-rocksdb}
                       })
 
     ;; in-memory only (for testing)
