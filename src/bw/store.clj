@@ -118,12 +118,12 @@
    [[:crux.tx/put {:crux.db/id :patch
                    :crux.db/fn '(fn [ctx eid patch-data]
                                   (let [db (crux.api/db ctx)
-                                        entity (crux.api/entity db eid) ;; => {:foo :baz, :crux.db/id :baz}
-                                        patched-entity (merge entity patch-data)]
+                                        entity (crux.api/entity db eid)] ;; => {:foo :baz, :crux.db/id :baz}
                                     (when (and (not (nil? entity))
-                                               (map? patch-data)
-                                               (not= entity patched-entity))
-                                      [[:crux.tx/put patched-entity]])))}]]))
+                                               (map? patch-data))
+                                      (let [patched-entity (merge entity patch-data)]
+                                        (when-not (= entity patched-entity)
+                                          [[:crux.tx/put patched-entity]])))))}]]))
 
 (defn- add-update-tx
   "creates a 'update' function that takes a `document` and performs a `put` *but only if the data is different*.
