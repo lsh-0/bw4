@@ -67,7 +67,7 @@
             patch {:asdf :fdsa}
             expected (merge doc patch)]
         @(store/put doc)
-        @(store/patch :baz patch)
+        @(store/patch-doc :baz patch)
         (is (= expected (store/get-by-id :baz)))))))
 
 (deftest patch-doc--missing-doc
@@ -76,7 +76,7 @@
       (let [;; doc {:foo :bar, :id :baz}
             patch {:asdf :fdsa}]
         ;;@(store/put doc)
-        @(store/patch :baz patch)
+        @(store/patch-doc :baz patch)
         ;; nothing created
         (is (nil? (store/get-by-id :baz)))))))
 
@@ -86,14 +86,14 @@
       (let [doc {:foo :bar, :id :baz}
             patch "hello?"]
         @(store/put doc)
-        @(store/patch :baz patch)
+        @(store/patch-doc :baz patch)
         (is (= doc (store/get-by-id :baz)))))))
 
 
 ;; object history
 
 (deftest doc-history
-  (testing "all previous versions of a document (map) can be retrieved"
+  (testing "all previous versions of a document (map) can be retrieved, ordered most to least recent"
     (helper/with-running-app
       (let [doc {:foo :bar, :id :baz}
             doc-update (assoc doc :foo :bup)
@@ -102,7 +102,7 @@
             [doc-history tx] (store/get-history-by-id :baz)]
         (is (= [doc-update doc] doc-history))))))
 
-(deftest identical-history
+(deftest doc-history--put-identical-document
   (testing "identical updates to documents do not create new versions"
     (helper/with-running-app
       (let [doc {:foo :bar, :id :baz}
@@ -111,6 +111,18 @@
             _ @(store/update-doc doc-update)
             [doc-history tx] (store/get-history-by-id :baz)]
         (is (= [doc-update] doc-history))))))
+
+(deftest doc-history--patch-identical-document
+  (testing "a patch that creates an identical document to the previous document in history cannot happen"
+    (helper/with-running-app
+      (let [doc {:foo :bar, :id :baz}
+            patch {:foo :bar}
+            _ @(store/put doc)
+            _ @(store/patch-doc :baz patch)
+            [doc-history tx] (store/get-history-by-id :baz)]
+        (is (= [doc] doc-history))))))
+
+;;
 
 (deftest delete-by-id
   (testing "a document (map) can be deleted from the store"

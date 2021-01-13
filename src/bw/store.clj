@@ -49,13 +49,15 @@
     [doc (crux/submit-tx (node) [[:crux.tx/put doc]])]))
 
 (defn put
+  "'puts' a document into the document store.
+  See `patch-doc` and `update-doc` for fancier types of 'put'."
   [blob]
   (let [[doc result] (-put blob)]
     (future
       ;; this is *another* transaction on top of the one in `-put`, so the `tx-id` and `tx-time` are different  
       [doc (crux/await-tx (node) result)])))
 
-(defn patch
+(defn patch-doc
   "merges `patch-data` over the current entity document"
   [eid patch-data]
   (let [result (crux/submit-tx (node) [[:crux.tx/fn :patch eid patch-data]])]
@@ -116,10 +118,12 @@
    [[:crux.tx/put {:crux.db/id :patch
                    :crux.db/fn '(fn [ctx eid patch-data]
                                   (let [db (crux.api/db ctx)
-                                        entity (crux.api/entity db eid)] ;; => {:foo :baz, :crux.db/id :baz}
+                                        entity (crux.api/entity db eid) ;; => {:foo :baz, :crux.db/id :baz}
+                                        patched-entity (merge entity patch-data)]
                                     (when (and (not (nil? entity))
-                                             (map? patch-data))
-                                      [[:crux.tx/put (merge entity patch-data)]])))}]]))
+                                               (map? patch-data)
+                                               (not= entity patched-entity))
+                                      [[:crux.tx/put patched-entity]])))}]]))
 
 (defn- add-update-tx
   "creates a 'update' function that takes a `document` and performs a `put` *but only if the data is different*.
