@@ -8,8 +8,16 @@
    [me.raynes.fs :as fs]
    [gui.diff :refer [with-gui-diff]]
    [bw
+    [utils :as utils]
     [core :as core]])
   (:gen-class))
+
+(Thread/setDefaultUncaughtExceptionHandler
+ (reify Thread$UncaughtExceptionHandler
+   (uncaughtException [_ thread ex]
+     (error ex "Uncaught exception on" (.getName thread)))))
+
+(def known-test-ns [:main :core :store :scheduler])
 
 (defn test
   [& [ns-kw fn-kw]]
@@ -18,7 +26,7 @@
                               ;; ensure we're not writing logs to files
                               :appenders {:spit nil}}
     (if ns-kw
-      (if (some #{ns-kw} [:main :core :store])
+      (if (some #{ns-kw} known-test-ns)
         (with-gui-diff
           (if fn-kw
             ;; `test-vars` will run the test but not give feedback if test passes OR test not found
@@ -28,61 +36,18 @@
         (error "unknown test file:" ns-kw))
       (clojure.test/run-all-tests #"bw\..*-test"))))
 
-(defn find-service-list
-  "given a namespace in the form of a keyword, returns the contents of `'bw.$ns/service-list`, if it exists"
-  [ns-kw]
-  (let [ns (->> ns-kw name (str "bw.") symbol)]
-    (try 
-      (var-get (ns-resolve ns 'service-list))
-      (catch Exception e
-        (warn (format "service list not found: '%s/service-list" ns))))))
-
-(defn find-all-services
-  "finds the service-list for all given namespace keywords and returns a single list"
-  [ns-kw-list]
-  (mapcat find-service-list ns-kw-list))
-
-(defn find-service-init
-  [ns-kw]
-  (let [ns (->> ns-kw name (str "bw.") symbol)]
-    (try
-      (var-get (ns-resolve ns 'init))
-      (catch Exception e
-        (debug (format "init not found: '%s/init" ns))))))
-
-(defn find-all-service-init
-  [ns-kw-list]
-  (mapv find-service-init ns-kw-list))
-
-;;
-
-(def known-services [:core :store])
-(def known-service-init [:store])
-
 (defn stop
-  [state]
-  (when state
-    (doseq [clean-up-fn (:cleanup @state)]
-      (debug "calling cleanup fn:" clean-up-fn)
-      (clean-up-fn))
-    (alter-var-root #'core/state (constantly nil))))
+  []
+  (core/stop))
 
 (defn start
   [& [opt-map]]
-  (if core/state
-    (warn "application already started")
-    (do
-      (alter-var-root #'core/state (constantly (atom core/-state-template)))
-      (core/init (merge {:service-list (find-all-services known-services)} opt-map))
-
-      ;; init any services that need it
-      (doseq [init-fn (find-all-service-init known-service-init)]
-        (debug "initialising" init-fn)
-        (init-fn))
-
-      true)))
+  (core/init opt-map)
+  true)
 
 (defn restart
   []
-  (stop core/state)
+  (stop)
   (start))
+
+(utils/instrument true)

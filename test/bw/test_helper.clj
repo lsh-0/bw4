@@ -15,7 +15,7 @@
   (let [temp-dir-path (utils/expand-path (fs/temp-dir "bw-test."))]
     (try
       (debug "sanity check. stopping application if it hasn't already been stopped.")
-      (main/stop core/state)
+      (main/stop)
       (with-cwd temp-dir-path
         (debug "created temp working directory" fs/*cwd*)
         (f))
@@ -29,7 +29,7 @@
      (main/start {:initial-state {:service-state {:store {:storage-dir nil}}}})
      ~@form
      (finally
-       (main/stop core/state))))
+       (main/stop))))
 
 (defmacro with-running-app+opts
   [opts & form]
@@ -37,4 +37,4 @@
      (main/start ~opts)
      ~@form
      (finally
-       (main/stop core/state))))
+       (main/stop))))

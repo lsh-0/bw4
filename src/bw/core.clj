@@ -18,8 +18,10 @@
    ;; a service can store things in state, just not at the top level
    :service-state {:store {:storage-dir nil ;; in-memory store only (faster everything)
                            ;;:storage-dir "crux-store" ;; permanent store
-                           }}
-   :known-topics #{} ;; set of all known available topics
+                           }
+                   :scheduler {:scheduler nil}
+                   }
+   ;;:known-topics #{} ;; set of all known available topics
 })
 
 (def state nil)
@@ -73,6 +75,8 @@
   []
   (java.util.UUID/randomUUID))
 
+;; todo: should :topic-kw be optional here? why is a message tied to a topic?
+;; it could be broadcast to any number of topics
 (defn-spec message map?
   "creates a simple message that will go to those listening to the 'off-topic' topic by default"
   [topic-kw keyword?, msg map?]
@@ -99,6 +103,7 @@
       (info (format "dropping %s: %s" (name (:type dropped-val)) (:id dropped-val)))
       (recur))))
 
+;; should :topic be optional here, overriding the one in the `msg`?
 (defn emit
   "publishes given `msg` and, if response channel available, returns a `future` that
   pulls a value from the message's `:response-chan` when dereferenced"
@@ -106,13 +111,13 @@
   (when-let [publisher (get-state :publisher)]
     (if-not msg
       (error "cannot emit 'nil' as a message")      
-      (do
-        (async/put! publisher msg)
-        (when-let [chan (:response-chan msg)]
-          ;; response channel is closed after the result is put on channel.
-          ;; see `-add-service`.
-          (future
-            (<!! chan)))))))
+      (do (async/put! publisher msg)
+          (when-let [chan (:response-chan msg)]
+            ;; response channel is closed after the result is put on channel.
+            ;; see `-add-service`.
+            (future
+              (debug "pulling from chan" chan)
+              (<!! chan)))))))
 
 (defn-spec mkservice map?
   [service-id keyword?, topic keyword?, service-fn fn?]
@@ -122,7 +127,7 @@
    
    ;; where messages accumulate for this service.
    ;; messages are pulled off and processed sequentially
-   :input-chan (async/chan)
+   :input-chan nil ;; => (async/chan) in `register-service`
    ;;:pool 1 ;; todo: process incoming messages using a pool of workers
    })
 
@@ -131,6 +136,9 @@
   returns the polling channel."
   [service topic-kw]
   (async/sub (get-state :publication) topic-kw (:input-chan service))
+  ;;(debug (format "subbed chan '%s' to pub %s" (:input-chan service) (get-state :publication)))
+  (add-cleanup (fn []
+                 (async/unsub (get-state :publication) topic-kw (:input-chan service))))
 
   (debug (format "service %s waiting for messages on %s" (:id service) topic-kw))
   (async/go-loop []
@@ -146,7 +154,7 @@
         ;; when there is a response channel, stick the response on the channel, even if the response is nil
         (when resp-chan
           (debug "...response channel found, sending result to it:" result)
-          ;; this implies a single response only. 
+          ;; this implies a single response only.
           (when result
             (>! resp-chan result))
           (async/close! resp-chan))
@@ -158,10 +166,11 @@
     ;; message was nil (channel closed), die
     ))
 
-(defn register-service
+(defn-spec register-service nil?
   "services are just functions waiting for messages they can handle and then doing them"
-  [service-map]
-  (let [topic-kw (get service-map :topic :off-topic)
+  [service-map map?]
+  (let [service-map (assoc service-map :input-chan (async/chan))
+        topic-kw (get service-map :topic :off-topic)
 
         ;; a service can do a once-off thing before it starts listening
         ;; todo: add complementary `:close-fn` ? no, that can be done by :cleanup
@@ -172,10 +181,11 @@
 
         ]
     (swap! state update-in [:service-list] conj service-map)
-    (swap! state update-in [:known-topics] conj topic-kw)
+    ;;(swap! state update-in [:known-topics] conj topic-kw)
     (add-cleanup (fn []
                    ;; closes the actors input channel and empties any pending items
-                   (close-chan! (:input-chan service-map))
+                   (when-let [c (:input-chan service-map)]
+                     (close-chan! c))
                    ;; break the actor's polling loop on the subscription
                    ;; with a closed `:input-chan` it shouldn't receive any new messages and
                    ;; it would remain indefinitely parked
@@ -185,12 +195,46 @@
 (defn register-all-services
   [service-list]
   (run! register-service service-list))
-  
+
+(defn-spec find-service-list sequential?
+  "given a namespace in the form of a keyword, returns the contents of `'bw.$ns/service-list`, if it exists"
+  [ns-kw keyword?]
+  (let [ns (->> ns-kw name (str "bw.") symbol)]
+    (try 
+      (var-get (ns-resolve ns 'service-list))
+      (catch Exception e
+        (warn (format "service list not found: '%s/service-list" ns))))))
+
+(defn find-all-services
+  "finds the service-list for all given namespace keywords and returns a single list"
+  [ns-kw-list]
+  (mapcat find-service-list ns-kw-list))
+
+(defn find-service-init
+  [ns-kw]
+  (let [ns (->> ns-kw name (str "bw.") symbol)]
+    (try
+      (var-get (ns-resolve ns 'init))
+      (catch Exception e
+        (debug (format "init not found: '%s/init" ns))))))
+
+(defn find-all-service-init
+  [ns-kw-list]
+  (mapv find-service-init ns-kw-list))
+
 (defn init
   "app has been started at this point and state is available to be derefed."
   [& [opt-map]]
-  (let [publisher (async/chan)
+  (alter-var-root #'state (constantly (atom -state-template)))
+  (let [known-services [:core :store :scheduler]
+        known-services (get opt-map :service-list (find-all-services known-services))
+        
+        known-service-init [:store :scheduler]
+        known-service-init (find-all-service-init known-service-init)
+
+        publisher (async/chan)
         publication (async/pub publisher :topic)
+        _ (add-cleanup #(close-chan! publisher))
 
         state-updates {:publisher publisher
                        :publication publication}
@@ -202,10 +246,19 @@
 
     (swap! state merge state-updates)
 
-    (register-all-services (:service-list opt-map))
+    (doseq [init-fn known-service-init]
+      (debug "initialising" init-fn)
+      (init-fn))
 
-    ;;(test-query)))
-    ))
+    (register-all-services known-services)))
+
+(defn stop
+  []
+  (when state
+    (doseq [clean-up-fn (:cleanup @state)]
+      (debug "calling cleanup fn:" clean-up-fn)
+      (clean-up-fn))
+    (reset! state nil)))
 
 ;;
 

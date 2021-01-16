@@ -28,6 +28,7 @@
                  [clj-http "3.11.0"]
                  [com.taoensso/nippy "3.1.1"]
                  [cheshire "5.10.0"] ;; json decoding
+                 [it.sauronsoftware.cron4j/cron4j "2.2.5"] ;; scheduled tasks
                  
                  ]
   :repl-options {:init-ns bw.main})
