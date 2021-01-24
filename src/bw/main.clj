@@ -8,6 +8,7 @@
    [me.raynes.fs :as fs]
    [gui.diff :refer [with-gui-diff]]
    [bw
+    [gui :as gui]
     [utils :as utils]
     [core :as core]])
   (:gen-class))
@@ -43,11 +44,11 @@
 (defn start
   [& [opt-map]]
   (core/init opt-map)
+  (gui/start)
   true)
 
 (defn restart
   []
+  (gui/stop)
   (stop)
   (start))
-
-(utils/instrument true)

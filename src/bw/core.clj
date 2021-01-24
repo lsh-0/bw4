@@ -1,13 +1,12 @@
 (ns bw.core
   (:require
-   [clojure.tools.namespace.repl :refer [refresh]]
+   [clojure.tools.namespace.repl]
    [clojure.core.async :as async :refer [<! >! >!! <!! go]]
    [taoensso.timbre :refer [log debug info warn error spy]]
    [me.raynes.fs :as fs]
    [clojure.spec.alpha :as s]
    [orchestra.core :refer [defn-spec]]
-
-   ;;[universe.utils :as utils :refer [in? mk-id]]
+   [bw.utils :as utils]
    ))
 
 (def -state-template
@@ -21,6 +20,12 @@
                            }
                    :scheduler {:scheduler nil}
                    }
+   :in-repl? false
+   :ui {
+        :gui-showing? false
+        :results-list [] ;; the results we're currently dealing with
+        }
+   
    ;;:known-topics #{} ;; set of all known available topics
 })
 
@@ -222,10 +227,22 @@
   [ns-kw-list]
   (mapv find-service-init ns-kw-list))
 
+(defn refresh
+  []
+  nil)
+
+(defn-spec detect-repl! nil?
+  "if we're working from the REPL, we don't want the gui closing the session"
+  []
+  (swap! state assoc :in-repl? (utils/in-repl?))
+  nil)
+
 (defn init
   "app has been started at this point and state is available to be derefed."
   [& [opt-map]]
   (alter-var-root #'state (constantly (atom -state-template)))
+  (utils/instrument true)
+  (detect-repl!)
   (let [known-services [:core :store :scheduler]
         known-services (get opt-map :service-list (find-all-services known-services))
         
@@ -268,4 +285,3 @@
 
 (def service-list
   []) ;;(mkservice :info, :help, help-service)])
-                            

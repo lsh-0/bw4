@@ -8,6 +8,17 @@
    [bw.specs :as sp]
    ))
 
+
+(defn repl-stack-element?
+  [stack-element]
+  (and (= "clojure.main$repl" (.getClassName  stack-element))
+       (= "doInvoke"          (.getMethodName stack-element))))
+
+(defn in-repl?
+  []
+  (let [current-stack-trace (.getStackTrace (Thread/currentThread))]
+    (some repl-stack-element? current-stack-trace)))
+
 (defn instrument
   "if `flag` is true, enables spec checking instrumentation, otherwise disables it."
   [flag]
