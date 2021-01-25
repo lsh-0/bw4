@@ -49,10 +49,11 @@
 
 
 (defn object-box
-  [_]
-  (let [text "hiya"]
+  [{:keys [fx/context]}]
+  (let [text (fx/sub-val context get-in [:app-state :ui :result])]
     {:fx/type :text
-     :text text}))
+     :text (with-out-str
+             (clojure.pprint/pprint text))}))
 
 (defn vertical-split
   ""
