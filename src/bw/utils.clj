@@ -1,5 +1,6 @@
 (ns bw.utils
   (:require
+   [clojure.walk :as walk]
    [taoensso.timbre :refer [log debug info warn error spy]]
    [me.raynes.fs :as fs]
    [clojure.spec.alpha :as s]
@@ -8,6 +9,17 @@
    [bw.specs :as sp]
    ))
 
+(defn underscores-to-hyphens
+  "Recursively transforms all map keys in coll with the transform-key fn."
+  [coll]
+  (letfn [(transform [x]
+            (if-not (map? x)
+              x
+              (into {} (map (fn [[k v]]
+                              (let [new-key (-> k name (.replace \_ \-) keyword)]
+                                [new-key v]))
+                            x))))]
+    (walk/postwalk transform coll)))
 
 (defn repl-stack-element?
   [stack-element]

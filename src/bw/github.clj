@@ -1,6 +1,9 @@
 (ns bw.github
   (:require
-   [bw.http :as http]))
+   [clojure.set :refer [rename-keys]]
+   [bw
+    [utils :as utils]
+    [http :as http]]))
 
 (defn extract-repo
   "returns a normalised repo from the raw `github-repo` data and any stubs"
@@ -12,8 +15,20 @@
                   :has_downloads :has_issues :has_wiki :has_pages :has_projects
                   :url :mirror_url :size :licence :language
                   :default_branch]
-        data (select-keys github-repo key-list)]
-    data))
+
+        rename-map {:created_at :dt-created-at, :updated_at :dt-updated-at, :pushed_at :dt-pushed-at,
+                    :has_downloads :has-downloads?, :has_issues :has-issues?, :has_wiki :has-wiki?
+                    :has_pages :has-pages?, :has_projects, :has-projects?
+                    :archived :archived?, :disabled :disabled?, :private :private?, :fork :fork?}
+
+        data (-> github-repo
+                 (select-keys key-list)
+                 (rename-keys rename-map)
+                 utils/underscores-to-hyphens)
+
+        updates {:id (keyword "github" (str (:id data))) ;; :github/1234567890
+                 :type :github/repo}]
+    (merge data updates)))
 
 (defn repo-list
   "returns a list of all repositories for given user or org name "
