@@ -5,6 +5,7 @@
    [cljfx.ext.table-view :as fx.ext.table-view]
    [cljfx.lifecycle :as fx.lifecycle]
    [cljfx.component :as fx.component]
+   [cljfx.ext.list-view :as fx.ext.list-view]
    [cljfx
     [api :as fx]]
    ;;[cljfx.css :as css]
@@ -50,31 +51,45 @@
 
 (defn object-box
   [{:keys [fx/context]}]
-  (let [text (fx/sub-val context get-in [:app-state :ui :result])]
+  (let [selected-list (fx/sub-val context get-in [:app-state, :ui :selected-list])]
     {:fx/type :text
      :text (with-out-str
-             (clojure.pprint/pprint text))}))
+             (clojure.pprint/pprint selected-list))}))
 
-(defn vertical-split
-  ""
-  [_] ;;{:keys [fx/context]}]
-  {:fx/type :split-pane
-   :divider-positions [0.5]
-   :orientation :horizontal
-   :items [{:fx/type :v-box
-            :children []}
+(defn list-view [{:keys [items selection selection-mode on-change renderer]}]
+  {:fx/type fx.ext.list-view/with-selection-props
+   :props (case selection-mode
+            :multiple {:selection-mode :multiple
+                       :selected-items selection
+                       :on-selected-items-changed on-change}
+            :single (cond-> {:selection-mode :single
+                             :on-selected-item-changed on-change}
+                      (seq selection)
+                      (assoc :selected-item (-> selection sort first))))
+   :desc {:fx/type :list-view
+          :cell-factory {:fx/cell-type :list-cell
+                         :describe (fn [path]
+                                     {:text (renderer path)})}
+          :items items}})
 
-           {:fx/type :v-box
-            :children [{:fx/type object-box}]}
-           
-           ]
-   })
+(defn result-list-list
+  [{:keys [fx/context]}]
+  (let [result-list (fx/sub-val context get-in [:app-state, :ui :result-list])
+        selected-list (fx/sub-val context get-in [:app-state, :ui :selected-list])
+        ]
+    {:fx/type list-view
+     :selection-mode :multiple
+     :items result-list
+     :selection selected-list
+     :on-change ui/select-result
+     :renderer str ;; todo: need a 'single-textual-line' renderer here. 
+     }))
 
 (defn app
   "returns a description of the javafx Stage, Scene and the 'root' node.
   the root node is the top-most node from which all others are descendents of."
   [{:keys [fx/context]}]
-  (let [showing? (fx/sub-val context get-in [:app-state :ui :gui-showing?])
+  (let [showing? (fx/sub-val context get-in [:app-state, :ui :gui-showing?])
         ]
     {:fx/type :stage
      :showing showing?
@@ -84,9 +99,14 @@
      :height 768
      :scene {:fx/type :scene
              :root {:fx/type :v-box
-                    :children [
-                               {:fx/type vertical-split}
-                               ]
+                    :children [{:fx/type :split-pane
+                                :divider-positions [0.5]
+                                :orientation :horizontal
+                                :items [{:fx/type :v-box
+                                         :children [{:fx/type result-list-list}]}
+
+                                        {:fx/type :v-box
+                                         :children [{:fx/type object-box}]}]}]
                     }}}))
 
 ;;

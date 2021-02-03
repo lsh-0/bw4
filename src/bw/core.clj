@@ -23,7 +23,8 @@
    :in-repl? false
    :ui {
         :gui-showing? false
-        :results-list [] ;; the results we're currently dealing with
+        :result-list [] ;; the results we're currently dealing with
+        :selected-list [] ;; subset of `result-list` that are currently selected by the user
         }
    
    ;;:known-topics #{} ;; set of all known available topics

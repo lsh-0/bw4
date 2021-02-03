@@ -47,4 +47,4 @@
                  [org.openjfx/javafx-graphics "14" :classifier "mac"]
                  
                  ]
-  :repl-options {:init-ns bw.main})
+  :repl-options {:init-ns bw.ui})

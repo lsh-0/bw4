@@ -51,4 +51,5 @@
   []
   (gui/stop)
   (stop)
+  (Thread/sleep 500) ;; so I can switch panes
   (start))
