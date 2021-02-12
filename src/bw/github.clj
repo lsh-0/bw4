@@ -5,6 +5,18 @@
     [utils :as utils]
     [http :as http]]))
 
+(defn repo-list
+  "returns a list of all repositories for given user or org name "
+  [user-or-org]
+  (let [url (format "https://api.github.com/users/%s/repos" user-or-org)
+        params {:as :json
+                :query-params {:per_page 100
+                               :page 1
+                               :sort "full_name"
+                               :type "owner"}}
+        ]
+    (http/download url params)))
+
 (defn extract-repo
   "returns a normalised repo from the raw `github-repo` data and any stubs"
   [github-repo]
@@ -29,15 +41,3 @@
         updates {:id (keyword "github" (str (:id data))) ;; :github/1234567890
                  :type :github/repo}]
     (merge data updates)))
-
-(defn repo-list
-  "returns a list of all repositories for given user or org name "
-  [user-or-org]
-  (let [url (format "https://api.github.com/users/%s/repos" user-or-org)
-        params {:as :json
-                :query-params {:per_page 100
-                               :page 1
-                               :sort "full_name"
-                               :type "owner"}}
-        ]
-    (http/download url params)))

@@ -51,10 +51,19 @@
 
 (defn object-box
   [{:keys [fx/context]}]
-  (let [selected-list (fx/sub-val context get-in [:app-state, :ui :selected-list])]
-    {:fx/type :text
-     :text (with-out-str
-             (clojure.pprint/pprint selected-list))}))
+  (let [selected-list (fx/sub-val context get-in [:app-state, :ui :selected-list])
+
+        default-renderer (fn [x]
+                           (with-out-str
+                             (clojure.pprint/pprint x)))
+        ]
+    {:fx/type :text-area
+     :wrap-text true
+     :style {
+             :-fx-font [15 :monospace]
+             }
+     :text (default-renderer selected-list)
+     }))
 
 (defn list-view [{:keys [items selection selection-mode on-change renderer]}]
   {:fx/type fx.ext.list-view/with-selection-props
@@ -82,7 +91,12 @@
      :items result-list
      :selection selected-list
      :on-change ui/select-result
-     :renderer str ;; todo: need a 'single-textual-line' renderer here. 
+     :renderer (fn [result]
+                 (or (:label result) ;;str ;; todo: need a 'single-textual-line' renderer here.
+                     (:name result)
+                     (:title result)
+                     (:id result)
+                     "???"))
      }))
 
 (defn app
@@ -98,16 +112,10 @@
      :width 1024
      :height 768
      :scene {:fx/type :scene
-             :root {:fx/type :v-box
-                    :children [{:fx/type :split-pane
-                                :divider-positions [0.5]
-                                :orientation :horizontal
-                                :items [{:fx/type :v-box
-                                         :children [{:fx/type result-list-list}]}
-
-                                        {:fx/type :v-box
-                                         :children [{:fx/type object-box}]}]}]
-                    }}}))
+             :root {:fx/type :border-pane
+                    :left {:fx/type result-list-list}
+                    :center {:fx/type object-box}}}
+     }))
 
 ;;
 
