@@ -15,7 +15,9 @@
 
 (defn-spec clear-results nil?
   []
-  (swap! core/state assoc-in [:ui :result-list] []))
+  (swap! core/state assoc-in [:ui :result-list] [])
+  (swap! core/state assoc-in [:ui :selected-list] [])
+  nil)
 
 (defn-spec select-result nil?
   "'selects' an item in the results list"
@@ -25,3 +27,22 @@
 
 
 ;; (mapv add-result (map bw.github/extract-repo (:body (bw.github/repo-list "lsh-0"))))
+
+
+(defn-spec select-service! nil?
+  [service-id keyword?]
+  (when-let [service-map (->> (core/get-state :service-list) (filter #(= service-id (:id %))) first)]
+    (swap! core/state assoc-in [:ui :selected-service] service-map))
+  nil)
+
+(defn-spec update-uin nil?
+  [user-input string?]
+  (swap! core/state assoc-in [:ui :user-input] user-input)
+  nil)
+
+(defn send-simple-request
+  "sends a simple text message to the currently selected service and any results are added to the UI result-list"
+  [msg]
+  (when-let [selected-service (core/get-state :ui :selected-service)]
+    (clear-results)
+    (mapv add-result @(core/emit (core/request (:topic selected-service) (str msg))))))

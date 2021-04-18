@@ -14,3 +14,5 @@
 ;; can't test if it's a directory until it exists.
 (s/def ::dir ::file) 
 (s/def ::extant-dir (s/and ::dir fs/directory?))
+
+(s/def ::service map?)

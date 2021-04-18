@@ -2,6 +2,7 @@
   (:require
    [clojure.set :refer [rename-keys]]
    [bw
+    [core :as core]
     [utils :as utils]
     [http :as http]]))
 
@@ -41,3 +42,13 @@
         updates {:id (keyword "github" (str (:id data))) ;; :github/1234567890
                  :type :github/repo}]
     (merge data updates)))
+
+;; ---
+
+(defn get-repo-list
+  "fetches and returns a list of repositories"
+  [{user-or-org :message}]
+  (->> user-or-org bw.github/repo-list :body (map bw.github/extract-repo)))
+
+(def service-list
+  [(core/mkservice :github, :github/get-repo-list, get-repo-list)])

@@ -6,7 +6,9 @@
    [me.raynes.fs :as fs]
    [clojure.spec.alpha :as s]
    [orchestra.core :refer [defn-spec]]
-   [bw.utils :as utils]
+   [bw
+    [utils :as utils]
+    [specs :as sp]]
    ))
 
 (def -state-template
@@ -25,6 +27,8 @@
         :gui-showing? false
         :result-list [] ;; the results we're currently dealing with
         :selected-list [] ;; subset of `result-list` that are currently selected by the user
+
+        :selected-service nil ;; the service the user is making requests to
         }
    
    ;;:known-topics #{} ;; set of all known available topics
@@ -85,7 +89,7 @@
 ;; it could be broadcast to any number of topics
 (defn-spec message map?
   "creates a simple message that will go to those listening to the 'off-topic' topic by default"
-  [topic-kw keyword?, msg map?]
+  [topic-kw keyword?, msg any?] ;;map?]
   {:type :message
    :id (mk-id)
    :topic topic-kw
@@ -95,7 +99,7 @@
 
 (defn-spec request map?
   "requests are messages that expect a response and come with a response channel"
-  [topic-kw keyword?, msg map?]
+  [topic-kw keyword?, msg any?] ;;map?]
   (assoc (message topic-kw msg)
          :response-chan (async/chan 1)))
 
@@ -125,7 +129,7 @@
               (debug "pulling from chan" chan)
               (<!! chan)))))))
 
-(defn-spec mkservice map?
+(defn-spec mkservice ::sp/service
   [service-id keyword?, topic keyword?, service-fn fn?]
   {:id service-id
    :topic topic
@@ -244,7 +248,8 @@
   (alter-var-root #'state (constantly (atom -state-template)))
   (utils/instrument true)
   (detect-repl!)
-  (let [known-services [:core :store :scheduler]
+  (let [known-services [;;:core
+                        :store :scheduler :github]
         known-services (get opt-map :service-list (find-all-services known-services))
         
         known-service-init [:store :scheduler]
@@ -284,5 +289,5 @@
   [msg]
   (println "hello, world"))
 
-(def service-list
-  []) ;;(mkservice :info, :help, help-service)])
+;;(def service-list
+;;  []) ;;(mkservice :info, :help, help-service)])

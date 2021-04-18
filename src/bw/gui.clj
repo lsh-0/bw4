@@ -24,6 +24,33 @@
    [javafx.application Platform]
    [javafx.scene Node]))
 
+
+
+;; javafx hack, fixes combobox that sometimes goes blank:
+;; https://github.com/cljfx/cljfx/issues/76#issuecomment-645563116
+;; supposedly fixed but I'm not seeing it.
+(def ext-recreate-on-key-changed
+  "Extension lifecycle that recreates its component when lifecycle's key is changed
+  
+  Supported keys:
+  - `:key` (required) - a value that determines if returned component should be recreated
+  - `:desc` (required) - a component description with additional lifecycle semantics"
+  (reify fx.lifecycle/Lifecycle
+    (create [_ {:keys [key desc]} opts]
+      (with-meta {:key key
+                  :child (fx.lifecycle/create fx.lifecycle/dynamic desc opts)}
+        {`fx.component/instance #(-> % :child fx.component/instance)}))
+    (advance [this component {:keys [key desc] :as this-desc} opts]
+      (if (= (:key component) key)
+        (update component :child #(fx.lifecycle/advance fx.lifecycle/dynamic % desc opts))
+        (do (fx.lifecycle/delete this component opts)
+            (fx.lifecycle/create this this-desc opts))))
+    (delete [_ component opts]
+      (fx.lifecycle/delete fx.lifecycle/dynamic (:child component) opts))))
+
+;; ----
+
+
 (defn get-window
   "returns the application `Window` object."
   []
@@ -48,6 +75,24 @@
                                (Platform/exit)
                                (System/exit 0)))))
 
+(defn list-view [{:keys [items selection selection-mode on-change renderer]}]
+  {:fx/type fx.ext.list-view/with-selection-props
+   :props (case selection-mode
+            :multiple {:selection-mode :multiple
+                       :selected-items selection
+                       :on-selected-items-changed on-change}
+            :single (cond-> {:selection-mode :single
+                             :on-selected-item-changed on-change}
+                      (seq selection)
+                      (assoc :selected-item (-> selection sort first))))
+   :desc {:fx/type :list-view
+          :cell-factory {:fx/cell-type :list-cell
+                         :describe (fn [path]
+                                     {:text (renderer path)})}
+          :items items}})
+
+
+;; ---
 
 (defn object-box
   [{:keys [fx/context]}]
@@ -64,22 +109,6 @@
              }
      :text (default-renderer selected-list)
      }))
-
-(defn list-view [{:keys [items selection selection-mode on-change renderer]}]
-  {:fx/type fx.ext.list-view/with-selection-props
-   :props (case selection-mode
-            :multiple {:selection-mode :multiple
-                       :selected-items selection
-                       :on-selected-items-changed on-change}
-            :single (cond-> {:selection-mode :single
-                             :on-selected-item-changed on-change}
-                      (seq selection)
-                      (assoc :selected-item (-> selection sort first))))
-   :desc {:fx/type :list-view
-          :cell-factory {:fx/cell-type :list-cell
-                         :describe (fn [path]
-                                     {:text (renderer path)})}
-          :items items}})
 
 (defn result-list-list
   [{:keys [fx/context]}]
@@ -99,6 +128,40 @@
                      "???"))
      }))
 
+(defn user-input
+  [{:keys [fx/context]}]
+  (let [service-list (fx/sub-val context get-in [:app-state, :service-list])
+        selected-service (fx/sub-val context get-in [:app-state, :ui :selected-service])
+
+        label (fn [service]
+                {:text (name (:id service))})
+        ]
+    {:fx/type :h-box
+     :children
+     [{:fx/type :combo-box
+       :items service-list
+       :button-cell label
+       :cell-factory {:fx/cell-type :list-cell
+                      :describe label}
+       :value selected-service
+       :on-value-changed (fn [selected-service]
+                           (ui/select-service! (:id selected-service)))
+       }
+      
+      {:fx/type :text-field
+       :text "foo"
+       :on-text-changed ui/update-uin
+       
+       }
+
+      {:fx/type :button
+       :text "execute"
+       :on-action (fn [_]
+                    (ui/send-simple-request (core/get-state :ui :user-input)))
+       
+       }
+      ]}))
+
 (defn app
   "returns a description of the javafx Stage, Scene and the 'root' node.
   the root node is the top-most node from which all others are descendents of."
@@ -113,6 +176,7 @@
      :height 768
      :scene {:fx/type :scene
              :root {:fx/type :border-pane
+                    :top {:fx/type user-input}
                     :left {:fx/type result-list-list}
                     :center {:fx/type object-box}}}
      }))
