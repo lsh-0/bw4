@@ -1,7 +1,8 @@
 (ns bw.gui
   (:require
    [me.raynes.fs :as fs]
-   [taoensso.timbre :as timbre :refer [spy info]] ;; debug info warn error spy]] 
+   [taoensso.timbre :as timbre :refer [spy info]] ;; debug info warn error spy]]
+   [clojure.pprint]
    [cljfx.ext.table-view :as fx.ext.table-view]
    [cljfx.lifecycle :as fx.lifecycle]
    [cljfx.component :as fx.component]
@@ -24,38 +25,11 @@
    [javafx.application Platform]
    [javafx.scene Node]))
 
-
-
-;; javafx hack, fixes combobox that sometimes goes blank:
-;; https://github.com/cljfx/cljfx/issues/76#issuecomment-645563116
-;; supposedly fixed but I'm not seeing it.
-(def ext-recreate-on-key-changed
-  "Extension lifecycle that recreates its component when lifecycle's key is changed
-  
-  Supported keys:
-  - `:key` (required) - a value that determines if returned component should be recreated
-  - `:desc` (required) - a component description with additional lifecycle semantics"
-  (reify fx.lifecycle/Lifecycle
-    (create [_ {:keys [key desc]} opts]
-      (with-meta {:key key
-                  :child (fx.lifecycle/create fx.lifecycle/dynamic desc opts)}
-        {`fx.component/instance #(-> % :child fx.component/instance)}))
-    (advance [this component {:keys [key desc] :as this-desc} opts]
-      (if (= (:key component) key)
-        (update component :child #(fx.lifecycle/advance fx.lifecycle/dynamic % desc opts))
-        (do (fx.lifecycle/delete this component opts)
-            (fx.lifecycle/create this this-desc opts))))
-    (delete [_ component opts]
-      (fx.lifecycle/delete fx.lifecycle/dynamic (:child component) opts))))
-
-;; ----
-
-
 (defn get-window
   "returns the application `Window` object."
   []
   (first (Window/getWindows)))
-  
+
 (defn exit-handler
   "exit the application. if running while testing or within a repl, it just closes the window"
   [& [_]]
@@ -94,27 +68,23 @@
 
 ;; ---
 
+
 (defn object-box
   [{:keys [fx/context]}]
   (let [selected-list (fx/sub-val context get-in [:app-state, :ui :selected-list])
 
         default-renderer (fn [x]
                            (with-out-str
-                             (clojure.pprint/pprint x)))
-        ]
+                             (clojure.pprint/pprint x)))]
     {:fx/type :text-area
      :wrap-text true
-     :style {
-             :-fx-font [15 :monospace]
-             }
-     :text (default-renderer selected-list)
-     }))
+     :style {:-fx-font [15 :monospace]}
+     :text (default-renderer selected-list)}))
 
 (defn result-list-list
   [{:keys [fx/context]}]
   (let [result-list (fx/sub-val context get-in [:app-state, :ui :result-list])
-        selected-list (fx/sub-val context get-in [:app-state, :ui :selected-list])
-        ]
+        selected-list (fx/sub-val context get-in [:app-state, :ui :selected-list])]
     {:fx/type list-view
      :selection-mode :multiple
      :items result-list
@@ -125,17 +95,15 @@
                      (:name result)
                      (:title result)
                      (:id result)
-                     "???"))
-     }))
+                     "???"))}))
 
-(defn user-input
+(defn service-query-widget
   [{:keys [fx/context]}]
   (let [service-list (fx/sub-val context get-in [:app-state, :service-list])
         selected-service (fx/sub-val context get-in [:app-state, :ui :selected-service])
 
         label (fn [service]
-                {:text (name (:id service))})
-        ]
+                {:text (name (:id service))})]
     {:fx/type :h-box
      :children
      [{:fx/type :combo-box
@@ -145,29 +113,22 @@
                       :describe label}
        :value selected-service
        :on-value-changed (fn [selected-service]
-                           (ui/select-service! (:id selected-service)))
-       }
-      
+                           (ui/select-service! (:id selected-service)))}
+
       {:fx/type :text-field
        :text "foo"
-       :on-text-changed ui/update-uin
-       
-       }
+       :on-text-changed ui/update-uin}
 
       {:fx/type :button
        :text "execute"
        :on-action (fn [_]
-                    (ui/send-simple-request (core/get-state :ui :user-input)))
-       
-       }
-      ]}))
+                    (ui/send-simple-request (core/get-state :ui :user-input)))}]}))
 
 (defn app
   "returns a description of the javafx Stage, Scene and the 'root' node.
   the root node is the top-most node from which all others are descendents of."
   [{:keys [fx/context]}]
-  (let [showing? (fx/sub-val context get-in [:app-state, :ui :gui-showing?])
-        ]
+  (let [showing? (fx/sub-val context get-in [:app-state, :ui :gui-showing?])]
     {:fx/type :stage
      :showing showing?
      :on-close-request exit-handler
@@ -176,19 +137,18 @@
      :height 768
      :scene {:fx/type :scene
              :root {:fx/type :border-pane
-                    :top {:fx/type user-input}
+                    :top {:fx/type service-query-widget}
                     :left {:fx/type result-list-list}
-                    :center {:fx/type object-box}}}
-     }))
+                    :center {:fx/type object-box}}}}))
 
 ;;
+
 
 (defn start
   []
   (info "starting gui")
   (let [;; the gui uses a copy of the application state because the state atom needs to be wrapped
-        state-template {:app-state nil,
-                        }
+        state-template {:app-state nil}
         gui-state (atom (fx/create-context state-template)) ;; cache/lru-cache-factory))
         update-gui-state (fn [new-state]
                            (swap! gui-state fx/swap-context assoc :app-state new-state))
@@ -212,9 +172,7 @@
                                                  (fx/unmount-renderer gui-state renderer)
                                                  ;; the slightest of delays allows any final rendering to happen before the exit-handler is called.
                                                  ;; only affects testing from the repl apparently and not `./run-tests.sh`
-                                                 (Thread/sleep 25)))
-
-        ]
+                                                 (Thread/sleep 25)))]
 
     (swap! core/state assoc-in [:ui :gui-showing?] true)
     (fx/mount-renderer gui-state renderer)

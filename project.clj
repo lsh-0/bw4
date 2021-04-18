@@ -34,17 +34,22 @@
                                               org.openjfx/javafx-media]]
                  [cljfx/css "1.1.0"]
 
-                 [org.openjfx/javafx-base "14"]
-                 [org.openjfx/javafx-base "14" :classifier "linux"]
-                 [org.openjfx/javafx-base "14" :classifier "mac"]
+                 [org.openjfx/javafx-base "15.0.1"]
+                 [org.openjfx/javafx-base "15.0.1" :classifier "linux"]
+                 [org.openjfx/javafx-base "15.0.1" :classifier "mac"]
 
-                 [org.openjfx/javafx-controls "14"]
-                 [org.openjfx/javafx-controls "14" :classifier "linux"]
-                 [org.openjfx/javafx-controls "14" :classifier "mac"]
+                 [org.openjfx/javafx-controls "15.0.1"]
+                 [org.openjfx/javafx-controls "15.0.1" :classifier "linux"]
+                 [org.openjfx/javafx-controls "15.0.1" :classifier "mac"]
 
-                 [org.openjfx/javafx-graphics "14"]
-                 [org.openjfx/javafx-graphics "14" :classifier "linux"]
-                 [org.openjfx/javafx-graphics "14" :classifier "mac"]
+                 [org.openjfx/javafx-graphics "15.0.1"]
+                 [org.openjfx/javafx-graphics "15.0.1" :classifier "linux"]
+                 [org.openjfx/javafx-graphics "15.0.1" :classifier "mac"]
                  
                  ]
-  :repl-options {:init-ns bw.ui})
+  :repl-options {:init-ns bw.ui}
+
+  :plugins [[lein-cljfmt "0.7.0"]
+            [jonase/eastwood "0.4.0"]]
+
+  )

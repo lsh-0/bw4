@@ -5,8 +5,7 @@
    [bw
     [utils :as utils]
     [core :as core]
-    [main :as main]]
-   ))
+    [main :as main]]))
 
 (defn fixture-tempcwd
   "each `deftest` is executed in a new and self-contained location, accessible as fs/*cwd*.

@@ -46,7 +46,6 @@
 
         ;; jobs-in-config (core/get-state :config :scheduled-jobs)
         ;; 
-        
         ]
     (core/set-state :service-state :scheduler :scheduler scheduler-inst)
     (core/add-cleanup (fn []
@@ -63,4 +62,4 @@
 
 (def service-list
   [(core/mkservice :schedule, :scheduler/add, add-scheduled-service)])
- 
+

@@ -2,6 +2,7 @@
   (:require
    [taoensso.timbre :refer [log debug info warn error spy]]
    [me.raynes.fs :as fs]
+   [clojure.set]
    [bw
     [core :as core :refer [mk-id]]]
    [crux.api :as crux]
@@ -152,8 +153,7 @@
     (crux/start-node {:bw4-rocksdb {:crux/module 'crux.rocksdb/->kv-store
                                     :db-dir storage-dir}
                       :crux/document-store {:kv-store :bw4-rocksdb}
-                      :crux/tx-log {:kv-store :bw4-rocksdb}
-                      })
+                      :crux/tx-log {:kv-store :bw4-rocksdb}})
 
     ;; in-memory only (for testing)
     ;; "Without any explicit configuration, Crux will start an in-memory node."
@@ -182,7 +182,7 @@
   [msg]
   (case (:action msg)
     :put (put (:data msg))
-    :get (get (:id msg))))
+    :get (get-by-id (:id msg))))
 
 (def service-list
   [(core/mkservice :db, :db/store, store-db-service)])

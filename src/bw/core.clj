@@ -8,8 +8,7 @@
    [orchestra.core :refer [defn-spec]]
    [bw
     [utils :as utils]
-    [specs :as sp]]
-   ))
+    [specs :as sp]]))
 
 (def -state-template
   {:cleanup [] ;; a list of functions that are called on application stop
@@ -20,19 +19,17 @@
    :service-state {:store {:storage-dir nil ;; in-memory store only (faster everything)
                            ;;:storage-dir "crux-store" ;; permanent store
                            }
-                   :scheduler {:scheduler nil}
-                   }
+                   :scheduler {:scheduler nil}}
    :in-repl? false
-   :ui {
-        :gui-showing? false
+   :ui {:gui-showing? false ;; is the gui displayed or not? 
         :result-list [] ;; the results we're currently dealing with
         :selected-list [] ;; subset of `result-list` that are currently selected by the user
 
         :selected-service nil ;; the service the user is making requests to
         }
-   
+
    ;;:known-topics #{} ;; set of all known available topics
-})
+   })
 
 (def state nil)
 
@@ -120,7 +117,7 @@
   [msg]
   (when-let [publisher (get-state :publisher)]
     (if-not msg
-      (error "cannot emit 'nil' as a message")      
+      (error "cannot emit 'nil' as a message")
       (do (async/put! publisher msg)
           (when-let [chan (:response-chan msg)]
             ;; response channel is closed after the result is put on channel.
@@ -130,11 +127,12 @@
               (<!! chan)))))))
 
 (defn-spec mkservice ::sp/service
+  "returns a 'service' description that the app will use to know which services exist and where to send results"
   [service-id keyword?, topic keyword?, service-fn fn?]
   {:id service-id
    :topic topic
    :func service-fn
-   
+
    ;; where messages accumulate for this service.
    ;; messages are pulled off and processed sequentially
    :input-chan nil ;; => (async/chan) in `register-service`
@@ -158,10 +156,11 @@
             result (try
                      ((:func service) msg)
                      (catch Exception e
-                       (error e "unhandled exception executing service:" e)))
-            ]
+                       (error e "unhandled exception executing service:" e)))]
 
         ;; when there is a response channel, stick the response on the channel, even if the response is nil
+
+
         (when resp-chan
           (debug "...response channel found, sending result to it:" result)
           ;; this implies a single response only.
@@ -187,9 +186,8 @@
         ;;_ (when-let [init-fn (get service-map :init-fn)]
         ;;    (init-fn))
 
-        subscription-polling (-add-service service-map topic-kw)
+        subscription-polling (-add-service service-map topic-kw)]
 
-        ]
     (swap! state update-in [:service-list] conj service-map)
     ;;(swap! state update-in [:known-topics] conj topic-kw)
     (add-cleanup (fn []
@@ -210,7 +208,7 @@
   "given a namespace in the form of a keyword, returns the contents of `'bw.$ns/service-list`, if it exists"
   [ns-kw keyword?]
   (let [ns (->> ns-kw name (str "bw.") symbol)]
-    (try 
+    (try
       (var-get (ns-resolve ns 'service-list))
       (catch Exception e
         (warn (format "service list not found: '%s/service-list" ns))))))
@@ -232,10 +230,6 @@
   [ns-kw-list]
   (mapv find-service-init ns-kw-list))
 
-(defn refresh
-  []
-  nil)
-
 (defn-spec detect-repl! nil?
   "if we're working from the REPL, we don't want the gui closing the session"
   []
@@ -248,10 +242,10 @@
   (alter-var-root #'state (constantly (atom -state-template)))
   (utils/instrument true)
   (detect-repl!)
-  (let [known-services [;;:core
+  (let [known-services [:core-services
                         :store :scheduler :github]
         known-services (get opt-map :service-list (find-all-services known-services))
-        
+
         known-service-init [:store :scheduler]
         known-service-init (find-all-service-init known-service-init)
 
@@ -282,12 +276,3 @@
       (debug "calling cleanup fn:" clean-up-fn)
       (clean-up-fn))
     (reset! state nil)))
-
-;;
-
-(defn help-service
-  [msg]
-  (println "hello, world"))
-
-;;(def service-list
-;;  []) ;;(mkservice :info, :help, help-service)])

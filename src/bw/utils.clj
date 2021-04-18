@@ -6,8 +6,7 @@
    [clojure.spec.alpha :as s]
    [orchestra.core :refer [defn-spec]]
    [orchestra.spec.test :as st]
-   [bw.specs :as sp]
-   ))
+   [bw.specs :as sp]))
 
 (defn underscores-to-hyphens
   "Recursively transforms all map keys in coll with the transform-key fn."
@@ -27,6 +26,7 @@
        (= "doInvoke"          (.getMethodName stack-element))))
 
 (defn in-repl?
+  "returns `true` if the current thread is using the REPL"
   []
   (let [current-stack-trace (.getStackTrace (Thread/currentThread))]
     (some repl-stack-element? current-stack-trace)))

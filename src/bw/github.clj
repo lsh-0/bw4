@@ -1,27 +1,30 @@
 (ns bw.github
   (:require
+   [clojure.spec.alpha :as s]
+   [orchestra.core :refer [defn-spec]]
    [clojure.set :refer [rename-keys]]
    [bw
+    [specs :as sp]
     [core :as core]
     [utils :as utils]
     [http :as http]]))
 
-(defn repo-list
+(defn-spec repo-list map? ;;:github/repo-list
   "returns a list of all repositories for given user or org name "
-  [user-or-org]
+  [user-or-org string?]
   (let [url (format "https://api.github.com/users/%s/repos" user-or-org)
         params {:as :json
                 :query-params {:per_page 100
                                :page 1
                                :sort "full_name"
-                               :type "owner"}}
-        ]
+                               :type "owner"}}]
+    ;; todo: handle unsuccessful requests somehow
     (http/download url params)))
 
-(defn extract-repo
+(defn-spec extract-repo :github/repo
   "returns a normalised repo from the raw `github-repo` data and any stubs"
-  [github-repo]
-  (let [key-list [:id :name :full_name :description
+  [github-repo map?]
+  (let [key-list [:id :name :full_name :description :html_url
                   :created_at :updated_at :pushed_at
                   :archived :disabled :private :fork
                   :open_issues_count :watchers_count :stargazers_count :forks_count
@@ -39,8 +42,10 @@
                  (rename-keys rename-map)
                  utils/underscores-to-hyphens)
 
-        updates {:id (keyword "github" (str (:id data))) ;; :github/1234567890
+        ;; used for boardwalk storage and retrieval
+        updates {:id (keyword "github" (str (:id data))) ;; => `:github/1234567890`
                  :type :github/repo}]
+
     (merge data updates)))
 
 ;; ---

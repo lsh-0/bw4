@@ -14,9 +14,8 @@
         service (core/mkservice :echo-service
                                 topic
                                 (fn [msg]
-                                  (println "--->" msg)))
-        
-        ]
+                                  (println "--->" msg)))]
+
     (helper/with-running-app+opts {:service-list (conj scheduler/service-list service)}
       (f))))
 
@@ -38,8 +37,7 @@
           result @(core/emit message)
           ;; _ (Thread/sleep (* 1000 60)) ;; if you want to see the scheduled task appear ;)
 
-          expected {:schedule schedule}
-          
-          ]
+          expected {:schedule schedule}]
+
       (is (contains? result :id))
       (is (= expected (dissoc result :id))))))
