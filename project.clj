@@ -50,6 +50,7 @@
   :repl-options {:init-ns bw.ui}
 
   :plugins [[lein-cljfmt "0.7.0"]
-            [jonase/eastwood "0.4.0"]]
+            [jonase/eastwood "0.4.0"]
+            [lein-cloverage "1.2.2"]]
 
   )
