@@ -21,19 +21,20 @@
     (.isStarted s)
     false))
 
-(defn-spec schedule-fn (s/or :ok string? :failed nil?)
-  [schedule string?, f fn?]
+(defn-spec schedule-fn (s/or :ok :scheduler/schedule :failed nil?)
+  [cron string?, f fn?]
   (if (and (started?)
-           (valid-schedule? schedule))
-    {:id (.schedule (get-scheduler) schedule f)
-     :schedule schedule}
-    (error (str "scheduler not started or given schedule is invalid: " schedule))))
+           (valid-schedule? cron))
+    {:id (.schedule (get-scheduler) cron f)
+     :type :scheduler/schedule
+     :cron cron}
+    (error (str "scheduler not started or given schedule is invalid: " cron))))
 
-(defn-spec schedule-message (s/or :ok string? :failed nil?)
-  [schedule string?, topic keyword?, message map?]
+(defn-spec schedule-message (s/or :ok :scheduler/schedule, :failed nil?)
+  [cron :scheduler/cron, topic keyword?, message map?]
   (let [message (core/message topic message)
         send-message-fn #(core/emit message)]
-    (schedule-fn schedule send-message-fn)))
+    (schedule-fn cron send-message-fn)))
 
 ;;
 
@@ -46,7 +47,6 @@
 
         ;; jobs-in-config (core/get-state :config :scheduled-jobs)
         ;; 
-        
         ]
     (core/set-state :service-state :scheduler :scheduler scheduler-inst)
     (core/add-cleanup (fn []
@@ -55,10 +55,12 @@
                             (.stop scheduler-inst))))))
   nil)
 
+;;
+
 (defn add-scheduled-service
   [{msg :message}]
-  (schedule-message (:schedule msg) (:topic msg) (:message msg)))
+  (schedule-message (:cron msg) (:topic msg) (:message msg)))
 
 (def service-list
   [(core/mkservice :schedule, :scheduler/add, add-scheduled-service)])
- 
+

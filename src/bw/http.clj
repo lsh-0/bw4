@@ -11,11 +11,9 @@
     [client :as http]
     [headers :as headers]]
    ;;[clojure.core.cache :as cache]
-   [taoensso.nippy :as nippy]
-   )
+   [taoensso.nippy :as nippy])
   (:import
    [org.apache.commons.io IOUtils]))
-
 
 (defn cache-key
   "safely encode a URI to something that can live cached on the filesystem"
@@ -80,7 +78,6 @@
                                       :heuristic-caching-enabled true
                                       :heuristic-coefficient 0.1 ;; 10% https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
                                       :heuristic-default-lifetime 86400 ;; seconds
-
                                       }})
 
         config {:trace-redirects true
@@ -91,9 +88,7 @@
         ;; clj-http options that can be passed through to the request, if they exist
         config (merge config (select-keys opts [:as :http-client :query-params]))
 
-        cache-file (cache-key url)
-        
-        ]
+        cache-file (cache-key url)]
 
     (if (cache-hit? cache-file)
       (slurp-cache-file cache-file)

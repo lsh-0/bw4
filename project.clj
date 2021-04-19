@@ -29,6 +29,27 @@
                  [com.taoensso/nippy "3.1.1"]
                  [cheshire "5.10.0"] ;; json decoding
                  [it.sauronsoftware.cron4j/cron4j "2.2.5"] ;; scheduled tasks
+
+                 [cljfx "1.7.13" :exclusions [org.openjfx/javafx-web
+                                              org.openjfx/javafx-media]]
+                 [cljfx/css "1.1.0"]
+
+                 [org.openjfx/javafx-base "15.0.1"]
+                 [org.openjfx/javafx-base "15.0.1" :classifier "linux"]
+                 [org.openjfx/javafx-base "15.0.1" :classifier "mac"]
+
+                 [org.openjfx/javafx-controls "15.0.1"]
+                 [org.openjfx/javafx-controls "15.0.1" :classifier "linux"]
+                 [org.openjfx/javafx-controls "15.0.1" :classifier "mac"]
+
+                 [org.openjfx/javafx-graphics "15.0.1"]
+                 [org.openjfx/javafx-graphics "15.0.1" :classifier "linux"]
+                 [org.openjfx/javafx-graphics "15.0.1" :classifier "mac"]
                  
                  ]
-  :repl-options {:init-ns bw.main})
+  :repl-options {:init-ns bw.ui}
+
+  :plugins [[lein-cljfmt "0.7.0"]
+            [jonase/eastwood "0.4.0"]]
+
+  )

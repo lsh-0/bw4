@@ -1,14 +1,16 @@
 (ns bw.core
   (:require
-   [clojure.tools.namespace.repl :refer [refresh]]
+   [clojure.tools.namespace.repl]
    [clojure.core.async :as async :refer [<! >! >!! <!! go]]
    [taoensso.timbre :refer [log debug info warn error spy]]
    [me.raynes.fs :as fs]
    [clojure.spec.alpha :as s]
    [orchestra.core :refer [defn-spec]]
+   [bw
+    [utils :as utils]
+    [specs :as sp]]))
 
-   ;;[universe.utils :as utils :refer [in? mk-id]]
-   ))
+(def testing? false)
 
 (def -state-template
   {:cleanup [] ;; a list of functions that are called on application stop
@@ -19,10 +21,18 @@
    :service-state {:store {:storage-dir nil ;; in-memory store only (faster everything)
                            ;;:storage-dir "crux-store" ;; permanent store
                            }
-                   :scheduler {:scheduler nil}
-                   }
+                   :scheduler {:scheduler nil}}
+   :in-repl? false
+   :ui {:gui-showing? false ;; is the gui displayed or not?
+        :disable-gui nil ;; gui pre-cleanup function
+        :result-list [] ;; the results we're currently dealing with
+        :selected-list [] ;; subset of `result-list` that are currently selected by the user
+
+        :selected-service nil ;; the service the user is making requests to
+        }
+
    ;;:known-topics #{} ;; set of all known available topics
-})
+   })
 
 (def state nil)
 
@@ -71,7 +81,7 @@
     (add-cleanup rmwatch)
     nil))
 
-(defn mk-id
+(defn-spec mk-id ::sp/id
   []
   (java.util.UUID/randomUUID))
 
@@ -79,7 +89,7 @@
 ;; it could be broadcast to any number of topics
 (defn-spec message map?
   "creates a simple message that will go to those listening to the 'off-topic' topic by default"
-  [topic-kw keyword?, msg map?]
+  [topic-kw keyword?, msg any?] ;;map?]
   {:type :message
    :id (mk-id)
    :topic topic-kw
@@ -89,7 +99,7 @@
 
 (defn-spec request map?
   "requests are messages that expect a response and come with a response channel"
-  [topic-kw keyword?, msg map?]
+  [topic-kw keyword?, msg any?] ;;map?]
   (assoc (message topic-kw msg)
          :response-chan (async/chan 1)))
 
@@ -110,7 +120,7 @@
   [msg]
   (when-let [publisher (get-state :publisher)]
     (if-not msg
-      (error "cannot emit 'nil' as a message")      
+      (error "cannot emit 'nil' as a message")
       (do (async/put! publisher msg)
           (when-let [chan (:response-chan msg)]
             ;; response channel is closed after the result is put on channel.
@@ -119,12 +129,13 @@
               (debug "pulling from chan" chan)
               (<!! chan)))))))
 
-(defn-spec mkservice map?
+(defn-spec mkservice ::sp/service
+  "returns a 'service' description that the app will use to know which services exist and where to send results"
   [service-id keyword?, topic keyword?, service-fn fn?]
   {:id service-id
    :topic topic
    :func service-fn
-   
+
    ;; where messages accumulate for this service.
    ;; messages are pulled off and processed sequentially
    :input-chan nil ;; => (async/chan) in `register-service`
@@ -148,10 +159,11 @@
             result (try
                      ((:func service) msg)
                      (catch Exception e
-                       (error e "unhandled exception executing service:" e)))
-            ]
+                       (error e "unhandled exception executing service:" e)))]
 
         ;; when there is a response channel, stick the response on the channel, even if the response is nil
+
+
         (when resp-chan
           (debug "...response channel found, sending result to it:" result)
           ;; this implies a single response only.
@@ -177,9 +189,8 @@
         ;;_ (when-let [init-fn (get service-map :init-fn)]
         ;;    (init-fn))
 
-        subscription-polling (-add-service service-map topic-kw)
+        subscription-polling (-add-service service-map topic-kw)]
 
-        ]
     (swap! state update-in [:service-list] conj service-map)
     ;;(swap! state update-in [:known-topics] conj topic-kw)
     (add-cleanup (fn []
@@ -200,7 +211,7 @@
   "given a namespace in the form of a keyword, returns the contents of `'bw.$ns/service-list`, if it exists"
   [ns-kw keyword?]
   (let [ns (->> ns-kw name (str "bw.") symbol)]
-    (try 
+    (try
       (var-get (ns-resolve ns 'service-list))
       (catch Exception e
         (warn (format "service list not found: '%s/service-list" ns))))))
@@ -222,13 +233,22 @@
   [ns-kw-list]
   (mapv find-service-init ns-kw-list))
 
+(defn-spec detect-repl! nil?
+  "if we're working from the REPL, we don't want the gui closing the session"
+  []
+  (swap! state assoc :in-repl? (utils/in-repl?))
+  nil)
+
 (defn init
   "app has been started at this point and state is available to be derefed."
   [& [opt-map]]
   (alter-var-root #'state (constantly (atom -state-template)))
-  (let [known-services [:core :store :scheduler]
+  (utils/instrument true)
+  (detect-repl!)
+  (let [known-services [:core-services
+                        :store :scheduler :github]
         known-services (get opt-map :service-list (find-all-services known-services))
-        
+
         known-service-init [:store :scheduler]
         known-service-init (find-all-service-init known-service-init)
 
@@ -259,13 +279,3 @@
       (debug "calling cleanup fn:" clean-up-fn)
       (clean-up-fn))
     (reset! state nil)))
-
-;;
-
-(defn help-service
-  [msg]
-  (println "hello, world"))
-
-(def service-list
-  []) ;;(mkservice :info, :help, help-service)])
-                            

@@ -2,6 +2,7 @@
   (:require
    [taoensso.timbre :refer [log debug info warn error spy]]
    [me.raynes.fs :as fs]
+   [clojure.set]
    [bw
     [core :as core :refer [mk-id]]]
    [crux.api :as crux]
@@ -14,6 +15,7 @@
 ;;
 
 (defn to-crux-doc
+  "transforms a document going in to Crux into something more convenient for Crux."
   [blob]
   (cond
     ;; data blob already has a crux id
@@ -33,6 +35,7 @@
     :else (assoc blob :crux.db/id (mk-id))))
 
 (defn from-crux-doc
+  "transforms a document coming out of Crux into something more convenient for the user."
   [result]
   (when result
     (if (map? result)
@@ -65,6 +68,8 @@
       (crux/await-tx (node) result))))
 
 (defn update-doc
+  "just like `put`, but if the given `doc` is identical to the previous document version
+  the transaction is rolled back."
   [doc]
   (let [crux-doc (to-crux-doc doc)
         result (crux/submit-tx (node) [[:crux.tx/fn :update crux-doc]])]
@@ -72,10 +77,12 @@
       [doc (crux/await-tx (node) result)])))
 
 (defn get-by-id
+  "fetches a document using the given `id`"
   [id]
   (from-crux-doc (crux/entity (crux/db (node)) id)))
 
 (defn get-by-id+time
+  "fetches a document using the given `id` at a specific point in `time`"
   [id time]
   (from-crux-doc (crux/entity (crux/db (node) time) id)))
 
@@ -146,8 +153,7 @@
     (crux/start-node {:bw4-rocksdb {:crux/module 'crux.rocksdb/->kv-store
                                     :db-dir storage-dir}
                       :crux/document-store {:kv-store :bw4-rocksdb}
-                      :crux/tx-log {:kv-store :bw4-rocksdb}
-                      })
+                      :crux/tx-log {:kv-store :bw4-rocksdb}})
 
     ;; in-memory only (for testing)
     ;; "Without any explicit configuration, Crux will start an in-memory node."
@@ -176,7 +182,7 @@
   [msg]
   (case (:action msg)
     :put (put (:data msg))
-    :get (get (:id msg))))
+    :get (get-by-id (:id msg))))
 
 (def service-list
   [(core/mkservice :db, :db/store, store-db-service)])

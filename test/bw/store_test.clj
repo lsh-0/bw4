@@ -92,6 +92,7 @@
 
 ;; object history
 
+
 (deftest doc-history
   (testing "all previous versions of a document (map) can be retrieved, ordered most to least recent"
     (helper/with-running-app
