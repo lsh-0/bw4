@@ -4,13 +4,20 @@ Boardwalk is a tool for consuming, publishing and navigating structured data.
 
 ## model
 
-`core.clj` handles application state and the logic of handling 'messages'.
+Data exists in a transient state in the UI until committed to the database whereupon it gets wrapped in a map and gains 
+an `id` if wasn't already a map and didn't already have and `id`.
 
-There are two types of messages, a regular 'message' and a 'request'. 
+The UI allows input of arbitrary data but also provides *services* to slurp data from other sources, such as Github, or transform existing data, or provide basic utilities, like storing data or scheduling tasks to be run.
 
-When a 'message' is sent it doesn't expect a response, it is simply broadcast out to anyone listening.
+Services are functions that listen to specific *topics* and accept *messages* addressed to those topics. 
 
-When a 'request' is sent it has a means for recipients to reply to it.
+A message is just some metadata wrapping arbitrary data that makes sense to the service receiving it. It can be anything.
+
+When a message is sent it typically doesn't expect a response, it is simply broadcast on the given *topic* to any service listening.
+
+A *request* is a type of message that returns a `future` that can be derefed (and will block) until results of the service are available.
+
+Multiple services can listen to a single topic. For example, a topic called "news" may exist and specialised services for popular news sites listen to requests sent to the "news" topic and returns results.
 
 ## License
 
