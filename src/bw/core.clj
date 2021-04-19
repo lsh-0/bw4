@@ -81,7 +81,7 @@
     (add-cleanup rmwatch)
     nil))
 
-(defn mk-id
+(defn-spec mk-id ::sp/id
   []
   (java.util.UUID/randomUUID))
 

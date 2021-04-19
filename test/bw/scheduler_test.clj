@@ -28,16 +28,16 @@
           ;; will be sent to this topic:
           scheduled-topic :test-messages
           ;; every minute, forever.
-          schedule "* * * * *"
+          cron "* * * * *"
 
           topic :scheduler/add
           message (core/request topic {:topic scheduled-topic
                                        :message scheduled-message
-                                       :schedule schedule})
+                                       :cron cron})
           result @(core/emit message)
           ;; _ (Thread/sleep (* 1000 60)) ;; if you want to see the scheduled task appear ;)
 
-          expected {:schedule schedule}]
+          expected {:cron cron, :type :scheduler/schedule}]
 
       (is (contains? result :id))
       (is (= expected (dissoc result :id))))))

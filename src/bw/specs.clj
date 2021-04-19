@@ -17,5 +17,19 @@
 
 (s/def ::service map?)
 
-(s/def :github/repo map?)
+(s/def ::id (s/or :uuid uuid? :uuid-str string?))
+(s/def ::type #{:github/repo :scheduler/schedule})
+
+(s/def ::boardwalk-type (s/keys :req-un [::id ::type]))
+
+;;
+
+(s/def :scheduler/cron string?)
+(s/def :scheduler/schedule (s/merge ::boardwalk-type
+                                    (s/keys :req-un [:scheduler/cron])))
+
+;;
+
+(s/def :github/repo (s/merge ::boardwalk-type
+                             (s/keys :req-un [])))
 (s/def :github/repo-list (s/coll-of :github/repo))
