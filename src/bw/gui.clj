@@ -40,7 +40,7 @@
     ;; and so will exit again there :( the double-check here seems to work though.
     (or (:in-repl? @core/state)
         (utils/in-repl?)) (swap! core/state assoc-in [:ui :gui-showing?] false)
-    (-> timbre/*config* :testing?) (swap! core/state assoc-in [:ui :gui-showing?] false)
+    core/testing? (swap! core/state assoc-in [:ui :gui-showing?] false)
     ;; 2020-08-08: `ss/invoke-later` was keeping the old window around when running outside of repl.
     ;; `ss/invoke-soon` seems to fix that.
     ;;  - http://daveray.github.io/seesaw/seesaw.invoke-api.html
@@ -168,11 +168,12 @@
 
         ;; don't do this, renderer has to be unmounted and the app closed before further state changes happen during cleanup
         ;;_ (core/add-cleanup #(fx/unmount-renderer gui-state renderer))
-        _ (swap! core/state assoc :disable-gui (fn []
-                                                 (fx/unmount-renderer gui-state renderer)
-                                                 ;; the slightest of delays allows any final rendering to happen before the exit-handler is called.
-                                                 ;; only affects testing from the repl apparently and not `./run-tests.sh`
-                                                 (Thread/sleep 25)))]
+        _ (swap! core/state assoc-in [:ui :disable-gui]
+                 (fn []
+                   (fx/unmount-renderer gui-state renderer)
+                   ;; the slightest of delays allows any final rendering to happen before the exit-handler is called.
+                   ;; only affects testing from the repl apparently and not `./run-tests.sh`
+                   (Thread/sleep 25)))]
 
     (swap! core/state assoc-in [:ui :gui-showing?] true)
     (fx/mount-renderer gui-state renderer)
@@ -193,7 +194,7 @@
   []
   (info "stopping gui")
   (when core/state
-    (when-let [unmount-renderer (:disable-gui @core/state)]
+    (when-let [unmount-renderer (core/get-state :ui :disable-gui)]
       ;; only affects tests running from repl apparently
       (unmount-renderer))
     (exit-handler))

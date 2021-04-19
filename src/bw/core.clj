@@ -10,6 +10,8 @@
     [utils :as utils]
     [specs :as sp]]))
 
+(def testing? false)
+
 (def -state-template
   {:cleanup [] ;; a list of functions that are called on application stop
    :publication nil ;; async/pub, sends messages to subscribers, if any
@@ -21,7 +23,8 @@
                            }
                    :scheduler {:scheduler nil}}
    :in-repl? false
-   :ui {:gui-showing? false ;; is the gui displayed or not? 
+   :ui {:gui-showing? false ;; is the gui displayed or not?
+        :disable-gui nil ;; gui pre-cleanup function
         :result-list [] ;; the results we're currently dealing with
         :selected-list [] ;; subset of `result-list` that are currently selected by the user
 
