@@ -2,11 +2,12 @@
   (:require
    [clojure.tools.namespace.repl]
    [clojure.core.async :as async :refer [<! >! >!! <!! go]]
-   [taoensso.timbre :refer [log debug info warn error spy]]
+   [taoensso.timbre :as timbre :refer [log debug info warn error spy]]
    [me.raynes.fs :as fs]
    [clojure.spec.alpha :as s]
    [orchestra.core :refer [defn-spec]]
    [bw
+    [logging :as logging]
     [utils :as utils]
     [specs :as sp]]))
 
@@ -245,6 +246,8 @@
   (alter-var-root #'state (constantly (atom -state-template)))
   (utils/instrument true)
   (detect-repl!)
+  (timbre/swap-config! timbre/default-config)
+  (timbre/merge-config! logging/default-logging-config)
   (let [known-services [:core-services
                         :store :scheduler :github]
         known-services (get opt-map :service-list (find-all-services known-services))
