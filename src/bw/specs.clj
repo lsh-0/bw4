@@ -3,6 +3,16 @@
    [clojure.spec.alpha :as s]
    [me.raynes.fs :as fs]))
 
+
+(defn some-id?
+  "returns `true` if given `id` value is any good"
+  [id]
+  (or (and (string? id)
+           (not (clojure.string/blank? id)))
+      (qualified-keyword? id)))
+
+;; --
+
 (s/def ::file (s/or :obj #(instance? java.io.File %)
                     :str (s/and string?
                                 #(try (and % (java.io.File. %))
@@ -17,7 +27,7 @@
 
 (s/def ::service map?)
 
-(s/def ::id (s/or :uuid uuid? :uuid-str string?))
+(s/def ::id (s/or :uuid uuid? :some-id some-id?))
 (s/def ::type #{:github/repo :scheduler/schedule})
 
 (s/def ::boardwalk-type (s/keys :req-un [::id ::type]))
