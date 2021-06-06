@@ -18,6 +18,20 @@
     [utils :as utils]
     [core :as core]])
   (:import
+   [com.fxgraph.graph Graph]
+   [com.fxgraph.layout AbegoTreeLayout]
+   [javafx.scene.input MouseButton]
+   [org.abego.treelayout Configuration$Location]
+
+   [com.fxgraph.cells AbstractCell RectangleCell]
+   [com.fxgraph.edges Edge CorneredEdge DoubleCorneredEdge CorneredLoopEdge CorneredLoopEdge$Position]
+   [javafx.geometry Orientation]
+   [javafx.scene.paint Color]
+   [javafx.scene.layout Pane]
+   [javafx.scene.transform Scale]
+   [javafx.scene.shape Polygon]
+   [javafx.scene.layout Region]
+
    [java.util List]
    [javafx.util Callback]
    [javafx.scene.control TableRow TextInputDialog Alert Alert$AlertType ButtonType]
@@ -124,6 +138,107 @@
        :on-action (fn [_]
                     (ui/send-simple-request (core/get-state :ui :user-input)))}]}))
 
+;;
+
+;; an extensible implementation of:
+;; https://github.com/sirolf2009/fxgraph/blob/master/src/main/java/com/fxgraph/cells/TriangleCell.java
+(defn my-node
+  [id-int]
+  (let [node
+        (proxy [AbstractCell] []
+
+          (^Region getGraphic [^Graph graph]
+            (let [width 50
+                  height 50
+
+                  colour (case (mod id-int 2)
+                           0 Color/RED
+                           1 Color/BLUE)
+
+                  view (doto (Polygon. (double-array [(/ width 2) 0 width height 0 height]))
+                         (.setStroke colour)
+                         (.setFill  colour))
+
+                  pane (doto (Pane. (into-array Polygon [view]))
+                         (.setPrefSize width height))
+
+                  scale (Scale. 1 1)
+                  _ (.add (.getTransforms view) scale)
+                  _ (.bind (.xProperty scale) (.divide (.widthProperty pane) 50))
+                  _ (.bind (.yProperty scale) (.divide (.heightProperty pane) 50))]
+
+              pane)))]
+    node))
+
+(defn populate-graph!
+  [graph]
+  (try
+    (.beginUpdate graph)
+    (let [model (.getModel graph)
+          create-cell (fn [i]
+                        (let [;;c (RectangleCell.)
+                              c (my-node i)]
+                          (.addCell model c)
+                          c))
+
+          create-edge (fn [[a b & [{:keys [label edge-type orientation directed? position]}]]]
+
+                        (let [directed? (if (nil? directed?)
+                                          false
+                                          directed?)
+
+                              orientation-lu {:horizontal Orientation/HORIZONTAL}
+                              default-orientation Orientation/VERTICAL
+                              orientation (get orientation-lu orientation, default-orientation)
+
+                              pos-lu {:top CorneredLoopEdge$Position/TOP}
+                              position (get pos-lu position)
+
+                              edge (case edge-type
+                                     :cornered (CorneredEdge. a b directed? orientation)
+                                     :double-cornered (DoubleCorneredEdge. a b directed? orientation)
+                                     :cornered-loop (CorneredLoopEdge. a position)
+                                     (Edge. a b))]
+
+                          (when label
+                            (.set (.textProperty edge) label))
+
+                          (.addEdge model edge)
+
+                          edge))
+
+          [ca cb cc cd ce cf cg] (mapv create-cell (range 7))
+
+          relationships
+          [[ca cb {:label "Directed Edge" :directed? true}]
+           [ca cc {:label "Directed CorneredEdge" :edge-type :cornered, :directed? true, :orientation :horizontal}]
+           [cb ce {:label "Directed DoubleCorneredEdge" :edge-type :double-cornered, :directed? true, :orientation :horizontal}]
+           [cc cf {:label "Directed Edge" :directed? true}]
+
+           [cf nil {:label "Loop top" :edge-type :cornered-loop :position :top}]
+
+           [cc cg]
+           [cb cd]]]
+
+      (run! create-edge relationships)
+
+      nil)
+
+    (finally
+      (.endUpdate graph))))
+
+(defn graph-widget
+  []
+  (let [graph (Graph.)
+        layout (AbegoTreeLayout. 200 200 Configuration$Location/Top)]
+    (populate-graph! graph)
+    (.layout graph layout)
+    (.setPanButton (.getViewportGestures graph) MouseButton/SECONDARY)
+    (.setDragButton (.getNodeGestures graph) MouseButton/PRIMARY)
+    (.getCanvas graph)))
+
+;;
+
 (defn app
   "returns a description of the javafx Stage, Scene and the 'root' node.
   the root node is the top-most node from which all others are descendents of."
@@ -139,7 +254,10 @@
              :root {:fx/type :border-pane
                     :top {:fx/type service-query-widget}
                     :left {:fx/type result-list-list}
-                    :center {:fx/type object-box}}}}))
+                    ;;:center {:fx/type object-box}
+                    :center {:fx/type :scroll-pane
+                             :content {:fx/type fx/ext-instance-factory
+                                       :create graph-widget}}}}}))
 
 ;;
 

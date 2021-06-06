@@ -25,6 +25,9 @@
                  ;; remember to update the LICENCE.txt
                  ;; remember to update pom file (`lein pom`)
 
+                 ;;[com.sirolf2009/fxgraph "0.0.3"]
+                 [com.github.sirolf2009/fxgraph "master-SNAPSHOT"]
+
                  [clj-http "3.11.0"]
                  [com.taoensso/nippy "3.1.1"]
                  [cheshire "5.10.0"] ;; json decoding
@@ -47,6 +50,9 @@
                  [org.openjfx/javafx-graphics "15.0.1" :classifier "mac"]
                  
                  ]
+
+  :repositories [["jitpack" "https://jitpack.io"]]
+
   :repl-options {:init-ns bw.ui}
 
   :plugins [[lein-cljfmt "0.7.0"]

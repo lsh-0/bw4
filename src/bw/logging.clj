@@ -5,8 +5,7 @@
    [orchestra.core :refer [defn-spec]]
    [clojure.spec.alpha :as s]
    [bw
-    [specs :as sp]]
-   ))
+    [specs :as sp]]))
 
 ;; https://github.com/ptaoussanis/timbre/blob/56d67dd274d7d11ab31624a70b4b5ae194c03acd/src/taoensso/timbre.cljc#L856-L858
 (def colour-log-map
@@ -41,7 +40,6 @@
                           (name level)
                           label
                           msg))))))
-
 
 (def default-logging-config
   {:min-level :info

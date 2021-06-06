@@ -1,8 +1,8 @@
 (ns bw.specs
   (:require
+   [clojure.string]
    [clojure.spec.alpha :as s]
    [me.raynes.fs :as fs]))
-
 
 (defn some-id?
   "returns `true` if given `id` value is any good"
